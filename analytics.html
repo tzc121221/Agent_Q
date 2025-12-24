@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据分析 - 智能问答Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        .bg-gradient-tech {
+            background: linear-gradient(135deg, #0B1426 0%, #1a2332 50%, #0B1426 100%);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        .card-glow {
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+        }
+        .particle-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .stats-card {
+            backdrop-filter: blur(10px);
+            background: rgba(26, 35, 50, 0.6);
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.15);
+        }
+        .chart-container {
+            backdrop-filter: blur(10px);
+            background: rgba(26, 35, 50, 0.6);
+        }
+        .metric-number {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #00D4FF 0%, #10B981 100%);
+        }
+    </style>
+</head>
+<body class="bg-gradient-tech text-white min-h-screen overflow-hidden">
+    <!-- 粒子背景 -->
+    <div id="particle-bg" class="particle-bg"></div>
+    
+    <!-- 顶部导航 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-black bg-opacity-20 backdrop-blur-md border-b border-gray-700">
+        <div class="flex items-center justify-between px-6 py-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-sm">AI</span>
+                </div>
+                <h1 class="text-xl font-bold text-glow">数据分析中心</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <a href="index.html" class="nav-link text-gray-300 hover:text-white transition-colors">问答</a>
+                <a href="knowledge.html" class="nav-link text-gray-300 hover:text-white transition-colors">知识库</a>
+                <a href="analytics.html" class="nav-link text-cyan-400 border-b-2 border-cyan-400 pb-1">分析</a>
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 bg-green-400 rounded-full pulse-animation"></div>
+                    <span class="text-sm text-gray-300">实时更新</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="pt-16 h-screen overflow-y-auto">
+        <!-- 关键指标卡片 -->
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- 总问答次数 -->
+                <div class="stats-card rounded-lg p-6 slide-up">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">总问答次数</p>
+                            <p class="text-3xl font-bold metric-number text-cyan-400" id="total-questions">0</p>
+                            <p class="text-xs text-green-400 mt-1">↗ +12% 本月</p>
+                        </div>
+                        <div class="text-4xl">💬</div>
+                    </div>
+                </div>
+
+                <!-- 平均响应时间 -->
+                <div class="stats-card rounded-lg p-6 slide-up" style="animation-delay: 0.1s">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">平均响应时间</p>
+                            <p class="text-3xl font-bold metric-number text-green-400" id="avg-response">0.0s</p>
+                            <p class="text-xs text-green-400 mt-1">↗ -5% 更快</p>
+                        </div>
+                        <div class="text-4xl">⚡</div>
+                    </div>
+                </div>
+
+                <!-- 用户满意度 -->
+                <div class="stats-card rounded-lg p-6 slide-up" style="animation-delay: 0.2s">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">用户满意度</p>
+                            <p class="text-3xl font-bold metric-number text-yellow-400" id="satisfaction">0%</p>
+                            <p class="text-xs text-green-400 mt-1">↗ +3% 提升</p>
+                        </div>
+                        <div class="text-4xl">😊</div>
+                    </div>
+                </div>
+
+                <!-- 学习进度 -->
+                <div class="stats-card rounded-lg p-6 slide-up" style="animation-delay: 0.3s">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">学习进度</p>
+                            <p class="text-3xl font-bold metric-number text-purple-400" id="learning-progress">0%</p>
+                            <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                                <div class="progress-bar h-2 rounded-full" style="width: 0%" id="progress-bar"></div>
+                            </div>
+                        </div>
+                        <div class="text-4xl">🧠</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- 问答趋势图 -->
+                <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.4s">
+                    <h3 class="text-lg font-semibold mb-4">问答趋势分析</h3>
+                    <div id="trend-chart" style="height: 300px;"></div>
+                </div>
+
+                <!-- 知识分类分布 -->
+                <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.5s">
+                    <h3 class="text-lg font-semibold mb-4">知识分类分布</h3>
+                    <div id="category-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+
+            <!-- 用户反馈分析 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- 反馈趋势 -->
+                <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.6s">
+                    <h3 class="text-lg font-semibold mb-4">用户反馈趋势</h3>
+                    <div id="feedback-chart" style="height: 250px;"></div>
+                </div>
+
+                <!-- 响应时间分布 -->
+                <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.7s">
+                    <h3 class="text-lg font-semibold mb-4">响应时间分布</h3>
+                    <div id="response-chart" style="height: 250px;"></div>
+                </div>
+
+                <!-- 热门话题 -->
+                <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.8s">
+                    <h3 class="text-lg font-semibold mb-4">热门话题</h3>
+                    <div id="topics-chart" style="height: 250px;"></div>
+                </div>
+            </div>
+
+            <!-- 详细数据表格 -->
+            <div class="chart-container rounded-lg p-6 slide-up" style="animation-delay: 0.9s">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">详细数据</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="exportData()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                            导出数据
+                        </button>
+                        <button onclick="refreshData()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                            刷新
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="text-left py-3 px-4">时间</th>
+                                <th class="text-left py-3 px-4">问题类型</th>
+                                <th class="text-left py-3 px-4">响应时间</th>
+                                <th class="text-left py-3 px-4">用户反馈</th>
+                                <th class="text-left py-3 px-4">知识匹配</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table">
+                            <!-- 数据行将在这里动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 数据分析管理类
+        class AnalyticsManager {
+            constructor() {
+                this.analyticsData = this.loadAnalyticsData();
+                this.charts = {};
+                this.init();
+            }
+
+            init() {
+                this.initParticleBackground();
+                this.updateMetrics();
+                this.initCharts();
+                this.generateMockData();
+                this.startRealTimeUpdates();
+            }
+
+            // 初始化粒子背景
+            initParticleBackground() {
+                const sketch = (p) => {
+                    let particles = [];
+                    const numParticles = 40;
+
+                    p.setup = () => {
+                        const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+                        canvas.parent('particle-bg');
+                        
+                        for (let i = 0; i < numParticles; i++) {
+                            particles.push({
+                                x: p.random(p.width),
+                                y: p.random(p.height),
+                                vx: p.random(-0.4, 0.4),
+                                vy: p.random(-0.4, 0.4),
+                                size: p.random(1, 2),
+                                opacity: p.random(0.2, 0.7)
+                            });
+                        }
+                    };
+
+                    p.draw = () => {
+                        p.clear();
+                        
+                        particles.forEach(particle => {
+                            p.fill(0, 212, 255, particle.opacity * 255);
+                            p.noStroke();
+                            p.circle(particle.x, particle.y, particle.size);
+                            
+                            particle.x += particle.vx;
+                            particle.y += particle.vy;
+                            
+                            if (particle.x < 0 || particle.x > p.width) particle.vx *= -1;
+                            if (particle.y < 0 || particle.y > p.height) particle.vy *= -1;
+                        });
+                    };
+
+                    p.windowResized = () => {
+                        p.resizeCanvas(p.windowWidth, p.windowHeight);
+                    };
+                };
+
+                new p5(sketch);
+            }
+
+            // 加载分析数据
+            loadAnalyticsData() {
+                const defaultData = {
+                    totalQuestions: 1247,
+                    averageResponseTime: 1.2,
+                    satisfactionRate: 94,
+                    learningProgress: 85,
+                    dailyStats: this.generateDailyStats(),
+                    categoryStats: {
+                        '人工智能': 156,
+                        '机器学习': 134,
+                        '深度学习': 98,
+                        '自然语言处理': 76,
+                        '计算机视觉': 54
+                    },
+                    feedbackStats: {
+                        positive: 1173,
+                        neutral: 45,
+                        negative: 29
+                    },
+                    responseTimeStats: [
+                        { range: '0-1s', count: 523 },
+                        { range: '1-2s', count: 421 },
+                        { range: '2-3s', count: 198 },
+                        { range: '3-5s', count: 85 },
+                        { range: '>5s', count: 20 }
+                    ],
+                    topTopics: [
+                        { topic: '神经网络', count: 89 },
+                        { topic: '深度学习', count: 76 },
+                        { topic: '机器学习', count: 65 },
+                        { topic: '自然语言处理', count: 54 },
+                        { topic: '计算机视觉', count: 43 },
+                        { topic: '强化学习', count: 38 },
+                        { topic: '知识图谱', count: 32 },
+                        { topic: 'AI伦理', count: 28 }
+                    ]
+                };
+
+                const saved = localStorage.getItem('agent_analytics_data');
+                return saved ? JSON.parse(saved) : defaultData;
+            }
+
+            // 生成每日统计数据
+            generateDailyStats() {
+                const days = 30;
+                const stats = [];
+                const today = new Date();
+                
+                for (let i = days - 1; i >= 0; i--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    
+                    stats.push({
+                        date: date.toISOString().split('T')[0],
+                        questions: Math.floor(Math.random() * 50) + 20,
+                        satisfaction: Math.floor(Math.random() * 10) + 90,
+                        responseTime: (Math.random() * 2 + 0.5).toFixed(1)
+                    });
+                }
+                
+                return stats;
+            }
+
+            // 更新关键指标
+            updateMetrics() {
+                this.animateNumber('total-questions', 0, this.analyticsData.totalQuestions, 2000);
+                this.animateNumber('avg-response', 0, this.analyticsData.averageResponseTime, 1500, 's');
+                this.animateNumber('satisfaction', 0, this.analyticsData.satisfactionRate, 1800, '%');
+                this.animateNumber('learning-progress', 0, this.analyticsData.learningProgress, 2200, '%');
+                
+                // 更新进度条
+                setTimeout(() => {
+                    const progressBar = document.getElementById('progress-bar');
+                    progressBar.style.width = this.analyticsData.learningProgress + '%';
+                }, 2500);
+            }
+
+            // 数字动画
+            animateNumber(elementId, start, end, duration, suffix = '') {
+                const element = document.getElementById(elementId);
+                const startTime = performance.now();
+                
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    const current = start + (end - start) * this.easeOutCubic(progress);
+                    element.textContent = Math.floor(current) + suffix;
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+                
+                requestAnimationFrame(animate);
+            }
+
+            // 缓动函数
+            easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            // 初始化图表
+            initCharts() {
+                this.initTrendChart();
+                this.initCategoryChart();
+                this.initFeedbackChart();
+                this.initResponseChart();
+                this.initTopicsChart();
+                this.renderDataTable();
+            }
+
+            // 初始化趋势图表
+            initTrendChart() {
+                const chartContainer = document.getElementById('trend-chart');
+                const chart = echarts.init(chartContainer);
+                
+                const dates = this.analyticsData.dailyStats.map(stat => stat.date);
+                const questions = this.analyticsData.dailyStats.map(stat => stat.questions);
+                const satisfaction = this.analyticsData.dailyStats.map(stat => stat.satisfaction);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    legend: {
+                        data: ['问答次数', '满意度'],
+                        textStyle: { color: '#fff' },
+                        top: 10
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dates.map(date => date.split('-').slice(1).join('/')),
+                        axisLine: { lineStyle: { color: '#666' } },
+                        axisLabel: { color: '#999', fontSize: 10 }
+                    },
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '问答次数',
+                            nameTextStyle: { color: '#00D4FF' },
+                            axisLine: { lineStyle: { color: '#666' } },
+                            axisLabel: { color: '#999' },
+                            splitLine: { lineStyle: { color: '#333' } }
+                        },
+                        {
+                            type: 'value',
+                            name: '满意度',
+                            nameTextStyle: { color: '#10B981' },
+                            axisLine: { lineStyle: { color: '#666' } },
+                            axisLabel: { color: '#999' },
+                            splitLine: { show: false }
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '问答次数',
+                            type: 'line',
+                            data: questions,
+                            smooth: true,
+                            lineStyle: { color: '#00D4FF', width: 2 },
+                            itemStyle: { color: '#00D4FF' },
+                            areaStyle: {
+                                color: {
+                                    type: 'linear',
+                                    x: 0, y: 0, x2: 0, y2: 1,
+                                    colorStops: [
+                                        { offset: 0, color: 'rgba(0, 212, 255, 0.3)' },
+                                        { offset: 1, color: 'rgba(0, 212, 255, 0.05)' }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            name: '满意度',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: satisfaction,
+                            smooth: true,
+                            lineStyle: { color: '#10B981', width: 2 },
+                            itemStyle: { color: '#10B981' }
+                        }
+                    ]
+                };
+                
+                chart.setOption(option);
+                this.charts.trend = chart;
+            }
+
+            // 初始化分类图表
+            initCategoryChart() {
+                const chartContainer = document.getElementById('category-chart');
+                const chart = echarts.init(chartContainer);
+                
+                const data = Object.entries(this.analyticsData.categoryStats).map(([name, value]) => ({
+                    name,
+                    value,
+                    itemStyle: {
+                        color: this.getCategoryColor(name)
+                    }
+                }));
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['50%', '50%'],
+                        data: data,
+                        label: {
+                            color: '#fff',
+                            fontSize: 11,
+                            formatter: '{b}: {c}'
+                        },
+                        labelLine: {
+                            lineStyle: { color: '#666' }
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 212, 255, 0.5)'
+                            }
+                        }
+                    }]
+                };
+                
+                chart.setOption(option);
+                this.charts.category = chart;
+            }
+
+            // 初始化反馈图表
+            initFeedbackChart() {
+                const chartContainer = document.getElementById('feedback-chart');
+                const chart = echarts.init(chartContainer);
+                
+                const data = [
+                    { name: '正面', value: this.analyticsData.feedbackStats.positive, itemStyle: { color: '#10B981' } },
+                    { name: '中性', value: this.analyticsData.feedbackStats.neutral, itemStyle: { color: '#F59E0B' } },
+                    { name: '负面', value: this.analyticsData.feedbackStats.negative, itemStyle: { color: '#EF4444' } }
+                ];
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: ['50%', '80%'],
+                        center: ['50%', '50%'],
+                        data: data,
+                        label: {
+                            show: false
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        }
+                    }]
+                };
+                
+                chart.setOption(option);
+                this.charts.feedback = chart;
+            }
+
+            // 初始化响应时间图表
+            initResponseChart() {
+                const chartContainer = document.getElementById('response-chart');
+                const chart = echarts.init(chartContainer);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: this.analyticsData.responseTimeStats.map(item => item.range),
+                        axisLine: { lineStyle: { color: '#666' } },
+                        axisLabel: { color: '#999', fontSize: 10 }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLine: { lineStyle: { color: '#666' } },
+                        axisLabel: { color: '#999' },
+                        splitLine: { lineStyle: { color: '#333' } }
+                    },
+                    series: [{
+                        type: 'bar',
+                        data: this.analyticsData.responseTimeStats.map(item => ({
+                            value: item.count,
+                            itemStyle: {
+                                color: {
+                                    type: 'linear',
+                                    x: 0, y: 0, x2: 0, y2: 1,
+                                    colorStops: [
+                                        { offset: 0, color: '#00D4FF' },
+                                        { offset: 1, color: '#10B981' }
+                                    ]
+                                }
+                            }
+                        })),
+                        barWidth: '60%'
+                    }]
+                };
+                
+                chart.setOption(option);
+                this.charts.response = chart;
+            }
+
+            // 初始化热门话题图表
+            initTopicsChart() {
+                const chartContainer = document.getElementById('topics-chart');
+                const chart = echarts.init(chartContainer);
+                
+                const data = this.analyticsData.topTopics.slice(0, 8).map(item => ({
+                    name: item.topic,
+                    value: item.count,
+                    textStyle: {
+                        fontSize: Math.max(12, item.count / 3)
+                    }
+                }));
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    series: [{
+                        type: 'wordCloud',
+                        shape: 'circle',
+                        left: 'center',
+                        top: 'center',
+                        width: '90%',
+                        height: '90%',
+                        right: null,
+                        bottom: null,
+                        sizeRange: [12, 30],
+                        rotationRange: [-45, 45],
+                        rotationStep: 45,
+                        gridSize: 8,
+                        drawOutOfBound: false,
+                        textStyle: {
+                            fontFamily: 'Noto Sans SC',
+                            color: function () {
+                                const colors = ['#00D4FF', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'];
+                                return colors[Math.floor(Math.random() * colors.length)];
+                            }
+                        },
+                        emphasis: {
+                            textStyle: {
+                                shadowBlur: 10,
+                                shadowColor: 'rgba(0, 212, 255, 0.5)'
+                            }
+                        },
+                        data: data
+                    }]
+                };
+                
+                chart.setOption(option);
+                this.charts.topics = chart;
+            }
+
+            // 渲染数据表格
+            renderDataTable() {
+                const tbody = document.getElementById('data-table');
+                const mockData = this.generateTableData();
+                
+                tbody.innerHTML = mockData.map(row => `
+                    <tr class="border-b border-gray-700 hover:bg-gray-800 hover:bg-opacity-30">
+                        <td class="py-3 px-4">${row.time}</td>
+                        <td class="py-3 px-4">${row.type}</td>
+                        <td class="py-3 px-4">${row.responseTime}s</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-block w-2 h-2 rounded-full mr-2 ${row.feedback === 'positive' ? 'bg-green-400' : row.feedback === 'negative' ? 'bg-red-400' : 'bg-yellow-400'}"></span>
+                            ${row.feedback === 'positive' ? '正面' : row.feedback === 'negative' ? '负面' : '中性'}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-cyan-400 h-2 rounded-full" style="width: ${row.matchRate}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // 生成表格数据
+            generateTableData() {
+                const types = ['人工智能', '机器学习', '深度学习', '自然语言处理', '计算机视觉'];
+                const feedbacks = ['positive', 'neutral', 'negative'];
+                const data = [];
+                
+                for (let i = 0; i < 20; i++) {
+                    const date = new Date();
+                    date.setHours(date.getHours() - Math.floor(Math.random() * 48));
+                    
+                    data.push({
+                        time: date.toLocaleString('zh-CN'),
+                        type: types[Math.floor(Math.random() * types.length)],
+                        responseTime: (Math.random() * 4 + 0.5).toFixed(1),
+                        feedback: feedbacks[Math.floor(Math.random() * feedbacks.length)],
+                        matchRate: Math.floor(Math.random() * 30 + 70)
+                    });
+                }
+                
+                return data.sort((a, b) => new Date(b.time) - new Date(a.time));
+            }
+
+            // 获取分类颜色
+            getCategoryColor(category) {
+                const colors = {
+                    '人工智能': '#00D4FF',
+                    '机器学习': '#10B981',
+                    '深度学习': '#F59E0B',
+                    '自然语言处理': '#8B5CF6',
+                    '计算机视觉': '#EF4444'
+                };
+                return colors[category] || '#6B7280';
+            }
+
+            // 生成模拟数据
+            generateMockData() {
+                // 模拟实时数据更新
+                setInterval(() => {
+                    this.analyticsData.totalQuestions += Math.floor(Math.random() * 3);
+                    this.analyticsData.averageResponseTime += (Math.random() - 0.5) * 0.1;
+                    this.analyticsData.satisfactionRate += (Math.random() - 0.5) * 2;
+                    
+                    // 保持数据在合理范围内
+                    this.analyticsData.averageResponseTime = Math.max(0.5, Math.min(3.0, this.analyticsData.averageResponseTime));
+                    this.analyticsData.satisfactionRate = Math.max(80, Math.min(100, this.analyticsData.satisfactionRate));
+                    
+                    this.updateMetrics();
+                }, 10000);
+            }
+
+            // 开始实时更新
+            startRealTimeUpdates() {
+                // 响应式图表
+                window.addEventListener('resize', () => {
+                    Object.values(this.charts).forEach(chart => {
+                        chart.resize();
+                    });
+                });
+            }
+
+            // 保存分析数据
+            saveAnalyticsData() {
+                localStorage.setItem('agent_analytics_data', JSON.stringify(this.analyticsData));
+            }
+        }
+
+        // 全局函数
+        function exportData() {
+            const data = {
+                analytics: analyticsManager.analyticsData,
+                exportTime: new Date(),
+                format: 'JSON'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analytics-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showFeedback('数据已导出', 'success');
+        }
+
+        function refreshData() {
+            analyticsManager.updateMetrics();
+            analyticsManager.initCharts();
+            showFeedback('数据已刷新', 'success');
+        }
+
+        function showFeedback(message, type = 'info') {
+            const feedbackDiv = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            feedbackDiv.className = `fixed top-20 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50 transform translate-x-full transition-transform duration-300`;
+            feedbackDiv.textContent = message;
+            
+            document.body.appendChild(feedbackDiv);
+            
+            setTimeout(() => {
+                feedbackDiv.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                feedbackDiv.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    feedbackDiv.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        // 初始化
+        let analyticsManager;
+        document.addEventListener('DOMContentLoaded', () => {
+            analyticsManager = new AnalyticsManager();
+        });
+    </script>
+</body>
+</html>

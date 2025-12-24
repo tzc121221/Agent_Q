@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库管理 - 智能问答Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        .bg-gradient-tech {
+            background: linear-gradient(135deg, #0B1426 0%, #1a2332 50%, #0B1426 100%);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        .card-glow {
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+        }
+        .particle-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .sidebar-nav {
+            backdrop-filter: blur(10px);
+            background: rgba(11, 20, 38, 0.8);
+        }
+        .knowledge-card {
+            backdrop-filter: blur(10px);
+            background: rgba(26, 35, 50, 0.6);
+            transition: all 0.3s ease;
+        }
+        .knowledge-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.15);
+        }
+        .category-item {
+            transition: all 0.2s ease;
+        }
+        .category-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .category-item.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-left: 3px solid #00D4FF;
+        }
+        .search-highlight {
+            background: rgba(255, 184, 0, 0.3);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-tech text-white min-h-screen overflow-hidden">
+    <!-- 粒子背景 -->
+    <div id="particle-bg" class="particle-bg"></div>
+    
+    <!-- 顶部导航 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-black bg-opacity-20 backdrop-blur-md border-b border-gray-700">
+        <div class="flex items-center justify-between px-6 py-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-sm">AI</span>
+                </div>
+                <h1 class="text-xl font-bold text-glow">知识库管理</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <a href="index.html" class="nav-link text-gray-300 hover:text-white transition-colors">问答</a>
+                <a href="knowledge.html" class="nav-link text-cyan-400 border-b-2 border-cyan-400 pb-1">知识库</a>
+                <a href="analytics.html" class="nav-link text-gray-300 hover:text-white transition-colors">分析</a>
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="text-sm text-gray-300">在线</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="flex h-screen pt-16">
+        <!-- 左侧分类面板 -->
+        <div class="w-64 sidebar-nav border-r border-gray-700 p-4 overflow-y-auto">
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-gray-400">知识分类</h3>
+                    <button onclick="addCategory()" class="text-cyan-400 hover:text-cyan-300 text-sm">+ 添加</button>
+                </div>
+                <div class="space-y-1" id="category-list">
+                    <div class="category-item active px-3 py-2 rounded cursor-pointer" data-category="all" onclick="selectCategory('all')">
+                        <div class="flex items-center justify-between">
+                            <span>📚 全部知识</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded" id="total-count">24</span>
+                        </div>
+                    </div>
+                    <div class="category-item px-3 py-2 rounded cursor-pointer" data-category="人工智能" onclick="selectCategory('人工智能')">
+                        <div class="flex items-center justify-between">
+                            <span>🤖 人工智能</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded">8</span>
+                        </div>
+                    </div>
+                    <div class="category-item px-3 py-2 rounded cursor-pointer" data-category="机器学习" onclick="selectCategory('机器学习')">
+                        <div class="flex items-center justify-between">
+                            <span>🧠 机器学习</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded">6</span>
+                        </div>
+                    </div>
+                    <div class="category-item px-3 py-2 rounded cursor-pointer" data-category="深度学习" onclick="selectCategory('深度学习')">
+                        <div class="flex items-center justify-between">
+                            <span>🔥 深度学习</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded">5</span>
+                        </div>
+                    </div>
+                    <div class="category-item px-3 py-2 rounded cursor-pointer" data-category="自然语言处理" onclick="selectCategory('自然语言处理')">
+                        <div class="flex items-center justify-between">
+                            <span>💬 自然语言处理</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded">3</span>
+                        </div>
+                    </div>
+                    <div class="category-item px-3 py-2 rounded cursor-pointer" data-category="计算机视觉" onclick="selectCategory('计算机视觉')">
+                        <div class="flex items-center justify-between">
+                            <span>👁️ 计算机视觉</span>
+                            <span class="text-xs bg-gray-600 px-2 py-1 rounded">2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="bg-gray-800 bg-opacity-50 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-gray-400 mb-3">知识库统计</h3>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">总条目:</span>
+                        <span class="text-cyan-400" id="stats-total">24</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">本月新增:</span>
+                        <span class="text-cyan-400">7</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">使用频率:</span>
+                        <span class="text-cyan-400">89%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中央内容区域 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 搜索和工具栏 -->
+            <div class="bg-gray-800 bg-opacity-40 border-b border-gray-700 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4 flex-1">
+                        <div class="relative flex-1 max-w-md">
+                            <input 
+                                type="text" 
+                                id="search-input"
+                                placeholder="搜索知识条目..." 
+                                class="w-full bg-gray-700 bg-opacity-60 border border-gray-600 rounded-lg px-4 py-2 pl-10 text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                                oninput="searchKnowledge()"
+                            >
+                            <div class="absolute left-3 top-2.5 text-gray-400">🔍</div>
+                        </div>
+                        <select id="sort-select" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" onchange="sortKnowledge()">
+                            <option value="recent">最近更新</option>
+                            <option value="usage">使用频率</option>
+                            <option value="name">名称排序</option>
+                        </select>
+                    </div>
+                    <button onclick="addKnowledge()" class="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                        + 添加知识
+                    </button>
+                </div>
+            </div>
+
+            <!-- 知识条目列表 -->
+            <div class="flex-1 overflow-y-auto p-6" id="knowledge-list">
+                <!-- 知识条目卡片将在这里动态生成 -->
+            </div>
+        </div>
+
+        <!-- 右侧操作面板 -->
+        <div class="w-80 sidebar-nav border-l border-gray-700 p-4 overflow-y-auto">
+            <div id="edit-panel" class="hidden">
+                <h3 class="text-lg font-semibold mb-4">编辑知识</h3>
+                <form id="knowledge-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">问题</label>
+                        <input type="text" id="question-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" placeholder="输入问题...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">分类</label>
+                        <select id="category-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                            <option value="人工智能">人工智能</option>
+                            <option value="机器学习">机器学习</option>
+                            <option value="深度学习">深度学习</option>
+                            <option value="自然语言处理">自然语言处理</option>
+                            <option value="计算机视觉">计算机视觉</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">标签</label>
+                        <input type="text" id="tags-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" placeholder="标签1, 标签2, 标签3">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">答案</label>
+                        <textarea id="answer-input" rows="8" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white resize-none" placeholder="输入详细答案..."></textarea>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="saveKnowledge()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded transition-colors">
+                            保存
+                        </button>
+                        <button type="button" onclick="cancelEdit()" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-2 rounded transition-colors">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 知识分布图表 -->
+            <div class="bg-gray-800 bg-opacity-50 rounded-lg p-4 mb-4">
+                <h3 class="text-sm font-semibold text-gray-400 mb-3">知识分布</h3>
+                <div id="knowledge-chart" style="height: 200px;"></div>
+            </div>
+
+            <!-- 最近活动 -->
+            <div class="bg-gray-800 bg-opacity-50 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-gray-400 mb-3">最近活动</h3>
+                <div class="space-y-2 text-xs">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span class="text-gray-300">添加了"神经网络原理"</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <span class="text-gray-300">更新了"深度学习应用"</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                        <span class="text-gray-300">删除了"过时算法"</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加分类弹窗 -->
+    <div id="category-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-6 w-96 max-w-90vw">
+            <h3 class="text-lg font-semibold mb-4">添加分类</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">分类名称</label>
+                    <input type="text" id="category-name-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" placeholder="输入分类名称...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">分类图标</label>
+                    <input type="text" id="category-icon-input" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" placeholder="输入emoji图标...">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button onclick="closeCategoryModal()" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded transition-colors">取消</button>
+                <button onclick="saveCategory()" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 知识库管理类
+        class KnowledgeManager {
+            constructor() {
+                this.knowledgeBase = this.loadKnowledgeBase();
+                this.currentCategory = 'all';
+                this.currentEditId = null;
+                this.init();
+            }
+
+            init() {
+                this.initParticleBackground();
+                this.renderKnowledgeList();
+                this.initChart();
+                this.updateStats();
+            }
+
+            // 初始化粒子背景
+            initParticleBackground() {
+                const sketch = (p) => {
+                    let particles = [];
+                    const numParticles = 30;
+
+                    p.setup = () => {
+                        const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+                        canvas.parent('particle-bg');
+                        
+                        for (let i = 0; i < numParticles; i++) {
+                            particles.push({
+                                x: p.random(p.width),
+                                y: p.random(p.height),
+                                vx: p.random(-0.3, 0.3),
+                                vy: p.random(-0.3, 0.3),
+                                size: p.random(1, 2),
+                                opacity: p.random(0.2, 0.6)
+                            });
+                        }
+                    };
+
+                    p.draw = () => {
+                        p.clear();
+                        
+                        particles.forEach(particle => {
+                            p.fill(0, 212, 255, particle.opacity * 255);
+                            p.noStroke();
+                            p.circle(particle.x, particle.y, particle.size);
+                            
+                            particle.x += particle.vx;
+                            particle.y += particle.vy;
+                            
+                            if (particle.x < 0 || particle.x > p.width) particle.vx *= -1;
+                            if (particle.y < 0 || particle.y > p.height) particle.vy *= -1;
+                        });
+                    };
+
+                    p.windowResized = () => {
+                        p.resizeCanvas(p.windowWidth, p.windowHeight);
+                    };
+                };
+
+                new p5(sketch);
+            }
+
+            // 加载知识库
+            loadKnowledgeBase() {
+                const defaultKnowledge = [
+                    {
+                        id: 1,
+                        question: '什么是人工智能？',
+                        category: '人工智能',
+                        tags: ['AI', '定义', '基础'],
+                        answer: '人工智能(AI)是计算机科学的一个分支，致力于创建能够执行通常需要人类智能的任务的系统，包括学习、推理、感知和语言理解。',
+                        usage: 45,
+                        lastUsed: new Date('2025-12-23'),
+                        created: new Date('2025-12-20')
+                    },
+                    {
+                        id: 2,
+                        question: '机器学习与深度学习的区别？',
+                        category: '机器学习',
+                        tags: ['机器学习', '深度学习', '对比'],
+                        answer: '机器学习是AI的一个子集，使用算法让计算机从数据中学习。深度学习是机器学习的一个分支，使用多层神经网络模拟人脑工作方式。',
+                        usage: 38,
+                        lastUsed: new Date('2025-12-22'),
+                        created: new Date('2025-12-19')
+                    },
+                    {
+                        id: 3,
+                        question: '神经网络的基本原理',
+                        category: '深度学习',
+                        tags: ['神经网络', '原理', '算法'],
+                        answer: '神经网络是受人脑启发的计算模型，由相互连接的节点(神经元)组成。每个连接都有权重，网络通过调整这些权重来学习。',
+                        usage: 32,
+                        lastUsed: new Date('2025-12-21'),
+                        created: new Date('2025-12-18')
+                    },
+                    {
+                        id: 4,
+                        question: '自然语言处理的应用场景',
+                        category: '自然语言处理',
+                        tags: ['NLP', '应用', '场景'],
+                        answer: 'NLP技术广泛应用于机器翻译、情感分析、文本摘要、问答系统、语音识别等领域，是AI技术的重要组成部分。',
+                        usage: 28,
+                        lastUsed: new Date('2025-12-20'),
+                        created: new Date('2025-12-17')
+                    },
+                    {
+                        id: 5,
+                        question: '计算机视觉的主要任务',
+                        category: '计算机视觉',
+                        tags: ['计算机视觉', '任务', '图像'],
+                        answer: '计算机视觉主要包括图像分类、目标检测、语义分割、实例分割、人脸识别等任务，在自动驾驶、医疗影像等领域有重要应用。',
+                        usage: 25,
+                        lastUsed: new Date('2025-12-19'),
+                        created: new Date('2025-12-16')
+                    }
+                ];
+
+                const saved = localStorage.getItem('agent_knowledge_list');
+                return saved ? JSON.parse(saved) : defaultKnowledge;
+            }
+
+            // 渲染知识列表
+            renderKnowledgeList() {
+                const container = document.getElementById('knowledge-list');
+                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                
+                let filteredKnowledge = this.knowledgeBase;
+                
+                // 按分类筛选
+                if (this.currentCategory !== 'all') {
+                    filteredKnowledge = filteredKnowledge.filter(item => item.category === this.currentCategory);
+                }
+                
+                // 按搜索词筛选
+                if (searchTerm) {
+                    filteredKnowledge = filteredKnowledge.filter(item => 
+                        item.question.toLowerCase().includes(searchTerm) ||
+                        item.answer.toLowerCase().includes(searchTerm) ||
+                        item.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                    );
+                }
+                
+                // 清空容器
+                container.innerHTML = '';
+                
+                if (filteredKnowledge.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="text-gray-500 text-lg mb-2">没有找到匹配的知识条目</div>
+                            <div class="text-gray-600 text-sm">尝试调整搜索词或添加新的知识条目</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 渲染知识卡片
+                filteredKnowledge.forEach((item, index) => {
+                    const card = this.createKnowledgeCard(item, index);
+                    container.appendChild(card);
+                });
+            }
+
+            // 创建知识卡片
+            createKnowledgeCard(item, index) {
+                const card = document.createElement('div');
+                card.className = 'knowledge-card rounded-lg p-6 mb-4 fade-in';
+                card.style.animationDelay = `${index * 0.1}s`;
+                
+                const timeAgo = this.getTimeAgo(item.lastUsed);
+                const tagColors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-yellow-500', 'bg-pink-500'];
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-white mb-2">${item.question}</h3>
+                            <div class="flex items-center space-x-4 text-sm text-gray-400 mb-3">
+                                <span class="bg-gray-600 px-2 py-1 rounded text-xs">${item.category}</span>
+                                <span>使用 ${item.usage} 次</span>
+                                <span>最后使用: ${timeAgo}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                ${item.tags.map((tag, i) => `
+                                    <span class="${tagColors[i % tagColors.length]} bg-opacity-20 text-xs px-2 py-1 rounded">
+                                        ${tag}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="editKnowledge(${item.id})" class="text-cyan-400 hover:text-cyan-300 p-2">
+                                ✏️
+                            </button>
+                            <button onclick="deleteKnowledge(${item.id})" class="text-red-400 hover:text-red-300 p-2">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-gray-300 text-sm leading-relaxed">
+                        ${item.answer}
+                    </div>
+                `;
+                
+                return card;
+            }
+
+            // 获取时间差
+            getTimeAgo(date) {
+                const now = new Date();
+                const diff = now - new Date(date);
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                
+                if (days === 0) return '今天';
+                if (days === 1) return '昨天';
+                if (days < 7) return `${days}天前`;
+                if (days < 30) return `${Math.floor(days / 7)}周前`;
+                return `${Math.floor(days / 30)}个月前`;
+            }
+
+            // 初始化图表
+            initChart() {
+                const chartContainer = document.getElementById('knowledge-chart');
+                const chart = echarts.init(chartContainer);
+                
+                // 统计各分类数量
+                const categoryStats = {};
+                this.knowledgeBase.forEach(item => {
+                    categoryStats[item.category] = (categoryStats[item.category] || 0) + 1;
+                });
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        borderColor: '#00D4FF',
+                        textStyle: { color: '#fff' }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['50%', '50%'],
+                        data: Object.entries(categoryStats).map(([name, value]) => ({
+                            name,
+                            value,
+                            itemStyle: {
+                                color: this.getCategoryColor(name)
+                            }
+                        })),
+                        label: {
+                            color: '#fff',
+                            fontSize: 10
+                        },
+                        labelLine: {
+                            lineStyle: { color: '#666' }
+                        }
+                    }]
+                };
+                
+                chart.setOption(option);
+                
+                // 响应式
+                window.addEventListener('resize', () => {
+                    chart.resize();
+                });
+            }
+
+            // 获取分类颜色
+            getCategoryColor(category) {
+                const colors = {
+                    '人工智能': '#00D4FF',
+                    '机器学习': '#10B981',
+                    '深度学习': '#F59E0B',
+                    '自然语言处理': '#8B5CF6',
+                    '计算机视觉': '#EF4444'
+                };
+                return colors[category] || '#6B7280';
+            }
+
+            // 更新统计信息
+            updateStats() {
+                document.getElementById('stats-total').textContent = this.knowledgeBase.length;
+                document.getElementById('total-count').textContent = this.knowledgeBase.length;
+            }
+
+            // 保存知识库
+            saveKnowledgeBase() {
+                localStorage.setItem('agent_knowledge_list', JSON.stringify(this.knowledgeBase));
+            }
+
+            // 显示反馈
+            showFeedback(message, type = 'info') {
+                const feedbackDiv = document.createElement('div');
+                const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+                
+                feedbackDiv.className = `fixed top-20 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50 transform translate-x-full transition-transform duration-300`;
+                feedbackDiv.textContent = message;
+                
+                document.body.appendChild(feedbackDiv);
+                
+                setTimeout(() => {
+                    feedbackDiv.style.transform = 'translateX(0)';
+                }, 100);
+                
+                setTimeout(() => {
+                    feedbackDiv.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        feedbackDiv.remove();
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // 全局变量和函数
+        let knowledgeManager;
+        let currentEditId = null;
+
+        // 选择分类
+        function selectCategory(category) {
+            // 更新UI状态
+            document.querySelectorAll('.category-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-category="${category}"]`).classList.add('active');
+            
+            // 更新当前分类并重新渲染
+            knowledgeManager.currentCategory = category;
+            knowledgeManager.renderKnowledgeList();
+        }
+
+        // 搜索知识
+        function searchKnowledge() {
+            knowledgeManager.renderKnowledgeList();
+        }
+
+        // 排序知识
+        function sortKnowledge() {
+            const sortBy = document.getElementById('sort-select').value;
+            
+            switch (sortBy) {
+                case 'recent':
+                    knowledgeManager.knowledgeBase.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
+                    break;
+                case 'usage':
+                    knowledgeManager.knowledgeBase.sort((a, b) => b.usage - a.usage);
+                    break;
+                case 'name':
+                    knowledgeManager.knowledgeBase.sort((a, b) => a.question.localeCompare(b.question));
+                    break;
+            }
+            
+            knowledgeManager.renderKnowledgeList();
+        }
+
+        // 添加知识
+        function addKnowledge() {
+            currentEditId = null;
+            document.getElementById('edit-panel').classList.remove('hidden');
+            document.getElementById('question-input').value = '';
+            document.getElementById('category-input').value = '人工智能';
+            document.getElementById('tags-input').value = '';
+            document.getElementById('answer-input').value = '';
+        }
+
+        // 编辑知识
+        function editKnowledge(id) {
+            currentEditId = id;
+            const item = knowledgeManager.knowledgeBase.find(k => k.id === id);
+            
+            if (item) {
+                document.getElementById('edit-panel').classList.remove('hidden');
+                document.getElementById('question-input').value = item.question;
+                document.getElementById('category-input').value = item.category;
+                document.getElementById('tags-input').value = item.tags.join(', ');
+                document.getElementById('answer-input').value = item.answer;
+            }
+        }
+
+        // 删除知识
+        function deleteKnowledge(id) {
+            if (confirm('确定要删除这个知识条目吗？')) {
+                knowledgeManager.knowledgeBase = knowledgeManager.knowledgeBase.filter(k => k.id !== id);
+                knowledgeManager.saveKnowledgeBase();
+                knowledgeManager.renderKnowledgeList();
+                knowledgeManager.updateStats();
+                knowledgeManager.initChart();
+                knowledgeManager.showFeedback('知识条目已删除', 'success');
+            }
+        }
+
+        // 保存知识
+        function saveKnowledge() {
+            const question = document.getElementById('question-input').value.trim();
+            const category = document.getElementById('category-input').value;
+            const tags = document.getElementById('tags-input').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+            const answer = document.getElementById('answer-input').value.trim();
+            
+            if (!question || !answer) {
+                knowledgeManager.showFeedback('请填写问题和答案', 'error');
+                return;
+            }
+            
+            if (currentEditId) {
+                // 更新现有知识
+                const item = knowledgeManager.knowledgeBase.find(k => k.id === currentEditId);
+                if (item) {
+                    item.question = question;
+                    item.category = category;
+                    item.tags = tags;
+                    item.answer = answer;
+                }
+                knowledgeManager.showFeedback('知识条目已更新', 'success');
+            } else {
+                // 添加新知识
+                const newItem = {
+                    id: Date.now(),
+                    question,
+                    category,
+                    tags,
+                    answer,
+                    usage: 0,
+                    lastUsed: new Date(),
+                    created: new Date()
+                };
+                knowledgeManager.knowledgeBase.push(newItem);
+                knowledgeManager.showFeedback('知识条目已添加', 'success');
+            }
+            
+            knowledgeManager.saveKnowledgeBase();
+            knowledgeManager.renderKnowledgeList();
+            knowledgeManager.updateStats();
+            knowledgeManager.initChart();
+            cancelEdit();
+        }
+
+        // 取消编辑
+        function cancelEdit() {
+            document.getElementById('edit-panel').classList.add('hidden');
+            currentEditId = null;
+        }
+
+        // 添加分类
+        function addCategory() {
+            document.getElementById('category-modal').classList.remove('hidden');
+        }
+
+        // 关闭分类弹窗
+        function closeCategoryModal() {
+            document.getElementById('category-modal').classList.add('hidden');
+            document.getElementById('category-name-input').value = '';
+            document.getElementById('category-icon-input').value = '';
+        }
+
+        // 保存分类
+        function saveCategory() {
+            const name = document.getElementById('category-name-input').value.trim();
+            const icon = document.getElementById('category-icon-input').value.trim() || '📁';
+            
+            if (!name) {
+                knowledgeManager.showFeedback('请输入分类名称', 'error');
+                return;
+            }
+            
+            // 检查分类是否已存在
+            const existingCategory = document.querySelector(`[data-category="${name}"]`);
+            if (existingCategory) {
+                knowledgeManager.showFeedback('分类已存在', 'error');
+                return;
+            }
+            
+            // 添加到分类列表
+            const categoryList = document.getElementById('category-list');
+            const categoryItem = document.createElement('div');
+            categoryItem.className = 'category-item px-3 py-2 rounded cursor-pointer';
+            categoryItem.setAttribute('data-category', name);
+            categoryItem.setAttribute('onclick', `selectCategory('${name}')`);
+            categoryItem.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span>${icon} ${name}</span>
+                    <span class="text-xs bg-gray-600 px-2 py-1 rounded">0</span>
+                </div>
+            `;
+            
+            categoryList.appendChild(categoryItem);
+            closeCategoryModal();
+            knowledgeManager.showFeedback('分类已添加', 'success');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            knowledgeManager = new KnowledgeManager();
+        });
+    </script>
+</body>
+</html>
